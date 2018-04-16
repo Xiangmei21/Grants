@@ -1,0 +1,300 @@
+---
+title: "NSF and NIH Grants Analysis"
+author: "Xiangmei Zhang"
+date: "2/4/2018"
+output: 
+  html_document:
+    toc: true # table of content true
+    toc_depth: 3  # upto three depths of headings (specified by #, ## and ###)
+    toc_float: true
+    theme: united  # many options for theme, this one is my favorite.
+    highlight: tango  
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,message=F,warning = F)
+```
+
+### NSF and NIH Grants Analysis in 2017
+
+NSF and NIH are two of the largest public funders that provide awards for research and education in biomedical health, science and engineering. The US government gives billions in science grants each year through NSF and NIH. NSF accounts for about 20 percent of federal support to academic institutions for basic research. And The NIH invests nearly $32.3 billion in fiscal year 2016 in medical research for the American people. In this project, I analyzed NSF and NIH grants in 2017 and investigated the patterns of grants by state, institution, research field to track the results of grants.
+
+### Grants by Reseach Field
+
+Two plots below shows the grants count and funding amount by organization department. The total grants amount of NIH is higher than that of NSF and the funded research fields are quite different. NSF mainly funds research in Engineering, Mathematical and Physical Science, and Computer Science and Enigneering. While NIH mainly provides grants in biomedical research field, such as Medicine, Biochemistry, Pharmacology, etc. 
+```{r,out.width=900,out.height=700}
+library(xml2)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(lubridate)
+library(leaflet)
+library(zipcode)
+library(DT)
+### NSF 2017 data
+load('/Users/zhang/Downloads/grants analysis/NSFgrants/xmldf07edit.rda')
+
+### NIH 2017 data
+
+load('/Users/zhang/Downloads/grants analysis/nihdf2017.rda')
+
+
+#------plot count by directorate--------------------------
+
+
+# g1=ggplot(xmldf, aes(x = reorder(Org.Directorate,table(Org.Directorate)[Org.Directorate]))) + 
+#  geom_bar(aes(fill=Award.Type)) +scale_fill_brewer(palette = "Set3") +labs(x='Directorate') +
+#  theme_light() + theme(axis.text.x = element_text(angle = -40))
+# ggplotly(g1)
+
+
+#---nsf
+sum = xmldf %>% select(Org.Directorate,Award.Type,AwardAmount) %>% 
+  group_by(Org.Directorate,Award.Type) %>% summarise(Count=n(),AmountSum=sum(AwardAmount)) %>% ungroup() %>%
+  gather(key = stat,value = value,3:4)
+reorder=levels(reorder(xmldf$Org.Directorate,-table(xmldf$Org.Directorate)[xmldf$Org.Directorate]))
+sum$Org.Directorate = factor(sum$Org.Directorate,levels = reorder)
+g2=sum %>%
+  ggplot(aes(x = Org.Directorate, y= value,fill=Award.Type)) + 
+  geom_bar(stat="identity") + scale_fill_brewer(palette = "Set3") + labs(x='Directorate',y='') +
+  facet_grid(stat~., scales = "free") + theme_light() +
+  theme(axis.text.x = element_text(angle = -40),
+        strip.text.y = element_text(colour = "black", face = "bold")) +
+   ggtitle("NSF Awards Summary by Diretorate in 2017")
+ggplotly(g2)%>% layout(legend = list(orientation = "v", x = 1.1), margin = list(l = 100),
+                       yaxis=list(title = paste0(c(rep("&nbsp;", 20),
+                                         "Count/Amount Sum",
+                                         rep("&nbsp;", 20),
+                                         rep("\n&nbsp;", 3)),
+                                       collapse = "")))
+
+```
+
+```{r, out.width=1100,out.height=700}
+##---nih
+sum2 = nihdf %>% select(`NIH Dept Combining Name`,`Funding Mechanism`,Funding) %>% 
+  group_by(`NIH Dept Combining Name`,`Funding Mechanism`) %>% summarise(Count=n(),AmountSum=sum(Funding)) %>% ungroup() %>%
+  gather(key = stat,value = value,3:4)
+reorder2=levels(reorder(nihdf$`NIH Dept Combining Name`,-table(nihdf$`NIH Dept Combining Name`)[nihdf$`NIH Dept Combining Name`]))
+sum2$`NIH Dept Combining Name` = factor(sum2$`NIH Dept Combining Name`,levels = reorder2)
+g3=sum2 %>%
+  ggplot(aes(x = `NIH Dept Combining Name`, y= value,fill=`Funding Mechanism`)) + 
+  geom_bar(stat="identity") + scale_fill_brewer(palette = "Set3") + labs(x='Department',y='') +
+  facet_grid(stat~., scales = "free") + theme_light() +
+  labs(fill = 'Funding Mechanism',
+       subtitle ='RPG:Research Project Grants\nSBIR: Small Business Innovation Research\nSTTR: Small Business Technology Transfer')+
+  ggtitle("NIH Awards Summary by Department in 2017") +
+  theme(axis.text.x = element_text(angle = -40),
+        strip.text.y = element_text(colour = "black", face = "bold"))
+ggplotly(g3) %>% layout(legend = list(orientation = "v", x = 1.05), margin = list(l = 90),
+                       yaxis=list(title = paste0(c(rep("&nbsp;", 20),
+                                         "Count/Amount Sum",
+                                         rep("&nbsp;", 20),
+                                         rep("\n&nbsp;", 2)),
+                                       collapse = "")))
+
+```
+
+### Grants by Year
+
+Among the two majority award type (Continuing grants and Standard Grant) of NSF, the sum funding amount is increasing with grant year duration. NIH could fund one project every year, the annual amount is decreasing with the support year. This shows NIH tends to give more funding at the start-up period of a project and research grants are funded more money than training grants.
+
+```{r}
+#------------plot amount by duration ------------
+ggplotly(xmldf %>% filter(Award.Type %in% c('Continuing grant','Standard Grant')) %>% 
+           ggplot(aes(x=Duration.Year, y = AwardAmount, color = Award.Type)) + geom_point(alpha=0.8) + ggtitle('NSF Award Amount Sum by Year Duration in 2017')
+         ) %>% layout(margin = list(l = 90),
+                       yaxis=list(title = paste0(c(rep("&nbsp;", 20),
+                                         "Award Amount",
+                                         rep("&nbsp;", 20),
+                                         rep("\n&nbsp;", 2)),
+                                       collapse = "")))
+ggplotly(nihdf %>% filter(!is.na(Year)) %>% 
+           ggplot(aes(x=Year, y = Funding, color = `Funding Mechanism`)) + 
+           geom_point(alpha=0.5)+ ggtitle('NIH Annual Award Amount by Year in 2017')+
+           ylim(0,3.1e7)) %>% layout(margin = list(l = 90),
+                       yaxis=list(title = paste0(c(rep("&nbsp;", 20),
+                                         "Award Amount",
+                                         rep("&nbsp;", 20),
+                                         rep("\n&nbsp;", 2)),
+                                       collapse = "")))
+```
+
+### Top 20 Largest Grants
+
+Explore this table, you can find two huge fundings, both of them are in geoscience field. Looks like geoscience research are supper expensive?
+```{r}
+##----------20 largest amount---------
+top20 = top_n(xmldf, 20, AwardAmount) %>% select(Institution.Name, AwardAmount, Award.Type, Duration.Year, AwardID, Org.Directorate) %>%
+  arrange(desc(AwardAmount))
+
+DT::datatable(
+  top20,
+  fillContainer = FALSE, options = list(pageLength = 8),
+  caption = 'Top 20 largest funding'
+)
+```
+
+### Mapping Grants Amount by States/City
+
+Because NIH and NSF grants data does not include map location information (except state and city name of institutions), my first step is to find latitude and longitude of institution city in NIH and NSF grants data by merging with map data. I summarized the funding sum by state and city and mapped them on US map. Explore and try click the city circles to find funding amount below.
+
+#### NSF Funding Map
+```{r}
+#------------plot award amount by country/city/institute------------------
+data(zipcode)
+### add lat and long data--------------
+
+
+state = data.frame(state.name,state.abb)
+state = rbind(state,data.frame(state.name=c('District of Columbia','Puerto Rico'),state.abb=c('DC','PR')))
+state = state %>% mutate(stateupper=toupper(state.name))
+state$stateupper[state$state.abb=='DC'] = "DIST OF COL"
+# number of institution per zipcode
+# xmlloc %>% group_by(Zip) %>% summarise(n = length(unique(Institution.Name))) %>% arrange(desc(n))
+
+### NSF
+sumCity = xmldf %>% group_by(Zip) %>% summarise(FundingSum = sum(AwardAmount)) %>% 
+  left_join(zipcode, by = c('Zip'='zip')) %>% 
+  group_by(city,state) %>% 
+  summarise(FundingSum = sum(FundingSum),
+            latitude = mean(latitude),longitude = mean(longitude))
+sumState=sumCity %>% group_by(state) %>% mutate(StateSum = sum(FundingSum)) %>% slice(1) %>%
+  select(state,StateSum) %>% left_join(state, by = c('state'='state.abb'))
+
+
+states <- geojsonio::geojson_read("/Users/zhang/Downloads/grants analysis/NSFgrants/tempgeo.json", what = "sp")
+states@data=states@data %>% left_join(sumState, by = c('name'='state.name')) %>% mutate(name = as.factor(name))
+
+pops=sprintf(
+  "<strong>%s</strong><br/>Funding Sum: %g $",
+  sumCity$city, sumCity$FundingSum
+)%>% lapply(htmltools::HTML)
+
+qpal <- colorBin("YlOrRd", states$StateSum/1e6, bins = c(0,5e6,1e7,2e7,8e7,2e8,4e8)/1e6)
+
+sumCity %>% leaflet() %>% addTiles()%>%
+  addPolygons(fillColor = ~qpal(StateSum/1e6), stroke = FALSE, data = states,
+              label = as.character(paste0(states$name,', State Sum:',states$StateSum))) %>%
+  addCircles(lng = ~longitude, lat = ~latitude, weight = 1,
+             radius = ~sqrt(FundingSum) * 20, label = ~city, popup = pops) %>%
+  addLegend(pal = qpal, values = ~states$StateSum, opacity = 0.7, 
+            title = "NSF Funding (2017)", position = "bottomright",
+            labFormat = labelFormat(prefix = "$", suffix = ' Million' ))%>% 
+  setView( lng = -100, lat = 40, zoom = 4)
+
+```
+
+#### NIH Funding Map
+
+```{r}
+### NIH
+## join with zipdata
+nihloc = nihdf %>% left_join(state, by = c('State or Country Name'='stateupper'))
+nihState = nihloc %>% filter(!is.na(state.abb)) %>% select(state.name,Funding)%>% 
+  group_by(state.name) %>% summarise(FundingSum = sum(Funding))
+
+cityloc = zipcode %>% mutate(citylower = tolower(city)) %>% 
+  group_by(citylower,state) %>% summarise(lat = mean(latitude),long=mean(longitude))
+nihCity = nihloc %>% filter ( !is.na(state.abb)) %>% group_by(City,state.abb,Country) %>% summarise(citySum = sum(Funding)) %>% 
+  left_join(cityloc, by = c('City'='citylower', 'state.abb'='state'))
+
+states@data=states@data %>% left_join(nihState, by = c('name'='state.name')) %>% mutate(name = as.factor(name))
+
+pops2=sprintf(
+  "<strong>%s</strong><br/>Funding Sum: %g $",
+  nihCity$City, nihCity$citySum
+)%>% lapply(htmltools::HTML)
+
+pal <- colorBin("YlGnBu", states$FundingSum/1e6, bins = c(0,2e7,1e8,2e8,4e8,8e8,2e9,4e9)/1e6)
+
+nihCity %>% leaflet() %>% addTiles()%>%
+  addPolygons(fillColor = ~pal(FundingSum/1e6), stroke = FALSE, data = states,
+              label = as.character(paste0(states$name,', State Sum:',states$FundingSum))) %>%
+  addCircles(lng = ~long, lat = ~lat, weight = 1,color = 'red',
+             radius = ~sqrt(citySum) * 10, label = ~City, popup = pops2) %>%
+  addLegend(pal = pal, values = ~states$FundingSum, opacity = 0.7, 
+            title = "NIH Funding (2017)", position = "bottomright",
+            labFormat = labelFormat(prefix = "$", suffix = ' Million'))%>% 
+  setView( lng = -100, lat = 40, zoom = 4)
+
+```
+
+
+### Grants by Institution
+
+Two pie charts below shows about top 20 institutions that receive largest amount of funding from NSF and NIH.
+```{r}
+## sum amount by Institution-----------
+xmldf %>% select(Institution.Name,AwardAmount) %>% 
+  group_by(Institution.Name) %>% summarise(Count=n(),AmountSum=sum(AwardAmount)) %>% 
+  arrange(desc(AmountSum)) %>% mutate(percent = AmountSum/sum(AmountSum)*100) %>%
+  plot_ly(labels = ~ifelse(AmountSum> 3e7,Institution.Name, 'Others'), values = ~AmountSum)%>%
+  add_pie(hole = 0.6)%>% layout(title = 'NSF Funding by Institution in 2017')
+
+
+nihdf %>% select(`Organization Name`,Funding) %>%
+  group_by(`Organization Name`) %>% summarise(Count=n(),AmountSum=sum(Funding)) %>% 
+  arrange(desc(AmountSum)) %>% mutate(percent = AmountSum/sum(AmountSum)*100) %>%
+plot_ly(labels = ~ifelse(AmountSum> 25e7,`Organization Name`, 'Others'), values = ~AmountSum)%>%
+  add_pie(hole = 0.6) %>% layout(title = 'NIH Funding by Institution in 2017')
+
+## country
+
+```
+
+### Grants by Country
+
+99.03% of NIH grants and 99.94% of NSF grants are funded for research and training projects in USA and few other countries get funding from NIH and NSF.
+```{r}
+DT::datatable(
+nihdf %>% group_by(Country) %>% summarise(Count=n(),Funding = sum(Funding))%>%
+  arrange(desc(Funding)) %>% mutate(percent = signif( Funding/sum(Funding)*100),4),
+fillContainer = FALSE, options = list(pageLength = 8) ,
+caption = 'NIH Grants by Country')
+
+DT::datatable(
+xmldf %>% mutate(Country = Institution.CountryName) %>% group_by(Country) %>% 
+  summarise(Count=n(),Funding = sum(AwardAmount))%>%
+  arrange(desc(Funding)) %>% mutate(percent = signif( Funding/sum(Funding)*100),4),
+fillContainer = FALSE, options = list(pageLength = 8),
+caption = 'NSF Grants by Country' )
+
+```
+
+
+### Tracking Grants Publication Results
+
+To analyze the grants results, I queried PubMed database with 15000 grants from NIH, and counted the number of papers published from the start of  fiscal year 2017 up to now. The plot below shows the relationship between number of papers and log funding amount, the pattern changes significantly by grant type of NIH.
+```{r}
+# plot npaper by funding
+ggplotly(nihdf  %>% filter(!is.na(nihdf$npaper)) %>%
+  ggplot(aes(x=log(Funding),y=npaper,color = `Funding Mechanism`)) + 
+  geom_point() )       #+ theme(legend.position = 'none')
+```
+
+Among the 150000 grants above, 8,852 projects have non-zero papers published last year. To identify research topics that produce papers, I plot the word cloud of all grant titles with non-zero paper.  
+```{r}
+library(tidytext)
+library(wordcloud2)
+library(webshot)
+library(htmlwidgets)
+
+
+## 8,852 projects have non 0 paper from 2016-9 up to now
+cloud = nihdf  %>% filter(!is.na(nihdf$npaper),nihdf$npaper!=0) %>%
+  unnest_tokens(word, `Project Title`) %>%
+  anti_join(stop_words) %>%
+  count(word, sort = TRUE) 
+cloud$wordlen = plyr::ldply(cloud$word,nchar)
+
+cl2=cloud %>% filter(wordlen>2,n>4) %>% mutate(freq = n) 
+
+my_graph <- wordcloud2(cl2 ,shape = 'circle')
+
+saveWidget(my_graph, "grants_analysis.html", selfcontained = F)
+
+webshot("grants_analysis.html", "wc1.png", delay = 5, vwidth = 800, vheight = 800)
+```
