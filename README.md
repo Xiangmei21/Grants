@@ -1,5 +1,4 @@
-# Grants
-NSF and NIH grants analysis in 2017
+# NSF and NIH grants analysis in 2017
 
 
 [click here](https://xiangmei21.github.io/Grants/) for the full grant analysis report and more information about this project!
