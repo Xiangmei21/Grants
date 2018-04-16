@@ -10,5 +10,5 @@ NSF and NIH are two of the largest public funders that provide awards for resear
 #### Mapping Grants Amount by States/City
 Because NIH and NSF grants data does not include map location information (except state and city name of institutions), my first step is to find latitude and longitude of institution city in NIH and NSF grants data by merging with map data. I summarized the funding sum by state and city and mapped them on US map. Explore and try click the city circles to find funding amount below.
 
-![fig.1](fig1.png)
-![fig.2](fig2.png)
+![fig.1](fig11.png)
+![fig.2](fig22.png)
